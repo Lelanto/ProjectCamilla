@@ -1,0 +1,4 @@
+mechanize
+BeautifulSoup
+watchdog
+lxml
