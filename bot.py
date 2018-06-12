@@ -805,8 +805,8 @@ class Bot(object):
 
     def sleep(self):
         sleep_options = options['general']
-        min = int(sleep_options['seed']) - int(sleep_options['check_interval'])
-        max = int(sleep_options['seed']) + int(sleep_options['check_interval'])
+        min = int(sleep_options['seed']) - randint(0,int(sleep_options['check_interval']))
+        max = int(sleep_options['seed']) + randint(0,int(sleep_options['check_interval']))
         sleep_time = randint(min, max)
         self.logger.info('Sleeping for %s secs' % sleep_time)
         if self.active_attacks:
