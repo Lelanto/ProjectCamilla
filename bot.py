@@ -231,7 +231,8 @@ class Bot(object):
         username = username or self.username
         password = password or self.password
         server = server or self.server
-
+        player_id = options['credentials']['player_id']
+        number = server[1:4]
         try:
             driver = webdriver.Chrome()
             driver.get("https://it.ogame.gameforge.com")
@@ -253,14 +254,14 @@ class Bot(object):
             driver.find_element_by_id("loginSubmit").click()
             time.sleep(2)
 
-            # Recupero ULR login
-            driver.get("https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=100188&server[language]=it&server[number]=150")
+            # Recupero URL login
+            driver.get("https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=" + player_id + "&server[language]=it&server[number]= " + number)
             time.sleep(2)
 
             # Richiamo il login
             html = driver.page_source
             soup = BeautifulSoup(html)
-            url = 'https://s150-it.ogame.gameforge.com/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}', '').replace('&amp;', '&')
+            url = 'https://' + server + '/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}', '').replace('&amp;', '&')
             driver.get(url)
 
             # Passo i cookie e la sessione a mechanize
