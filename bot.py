@@ -286,6 +286,8 @@ class Bot(object):
         except:
             return False
 
+        # Chiudo il browser
+        driver.quit()
         return True
 
     def calc_time(self, resp):
