@@ -20,7 +20,8 @@ from config import options
 from sim import Sim
 
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+import cookielib
+
 
 
 socket.setdefaulttimeout(float(options['general']['timeout']))
@@ -84,8 +85,6 @@ class Bot(object):
         self.logged_in = False
         
         self._prepare_logger()
-        self._prepare_browser()
-
 
         n = 1
         self.farm_no = []
@@ -148,14 +147,7 @@ class Bot(object):
         self.logger.addHandler(fh)
         self.logger.addHandler(sh)
         
-    def _prepare_browser(self):
-        self.br = mechanize.Browser()
-        self.br.set_handle_equiv(True)
-        self.br.set_handle_redirect(True)
-        self.br.set_handle_referer(True)
-        self.br.set_handle_robots(False)
-        self.br.addheaders = self.HEADERS
-        
+
     def _parse_build_url(self, js):
         """
         convert: `sendBuildRequest('url', null, 1)`; into: `url`
@@ -240,29 +232,60 @@ class Bot(object):
         password = password or self.password
         server = server or self.server
 
-        driver = webdriver.Chrome()
-        driver.get("https://it.ogame.gameforge.com")
+        try:
+            driver = webdriver.Chrome()
+            driver.get("https://it.ogame.gameforge.com")
 
-        # Chiudo banner
-        driver.find_element_by_link_text("x").click()
+            # Chiudo banner
+            driver.find_element_by_link_text("x").click()
 
-        # Vado sulla Login Form
-        driver.find_element_by_link_text("Login").click()
+            # Vado sulla Login Form
+            driver.find_element_by_link_text("Login").click()
 
-        # Immetto Credenziali
-        usernameLogin = driver.find_element_by_id("usernameLogin")
-        passwordLogin = driver.find_element_by_id("passwordLogin")
+            # Immetto Credenziali
+            usernameLogin = driver.find_element_by_id("usernameLogin")
+            passwordLogin = driver.find_element_by_id("passwordLogin")
 
-        usernameLogin.send_keys(username)
-        passwordLogin.send_keys(password)
+            usernameLogin.send_keys(username)
+            passwordLogin.send_keys(password)
 
-        # Clocco su login
-        driver.find_element_by_id("loginSubmit").click()
+            # Clicco su login
+            driver.find_element_by_id("loginSubmit").click()
+            time.sleep(2)
 
-        # Vado in errore per tenere aperto il browser per test
-        driver.find_element_by_id("ASDhasujhasddas")
+            # Recupero ULR login
+            driver.get("https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=100188&server[language]=it&server[number]=150")
+            time.sleep(2)
 
-        return False
+            # Richiamo il login
+            html = driver.page_source
+            soup = BeautifulSoup(html)
+            url = 'https://s150-it.ogame.gameforge.com/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}', '').replace('&amp;', '&')
+            driver.get(url)
+
+            # Passo i cookie e la sessione a mechanize
+            cookie = driver.get_cookies()
+            cj = cookielib.LWPCookieJar()
+
+            for s_cookie in cookie:
+                cj.set_cookie(cookielib.Cookie(version=0, name=s_cookie['name'], value=s_cookie['value'], port='80',
+                                               port_specified=False, domain=s_cookie['domain'], domain_specified=True,
+                                               domain_initial_dot=False, path=s_cookie['path'], path_specified=True,
+                                               secure=s_cookie['secure'], expires=None, discard=False,
+                                               comment=None, comment_url=None, rest=None, rfc2109=False))
+
+            # Instantiate a Browser and set the cookies
+            self.br = mechanize.Browser()
+            self.br.set_cookiejar(cj)
+            self.br.set_handle_equiv(True)
+            self.br.set_handle_redirect(True)
+            self.br.set_handle_referer(True)
+            self.br.set_handle_robots(False)
+            self.br.addheaders = self.HEADERS
+        except:
+            return False
+
+        return True
 
     def calc_time(self, resp):
         try:
