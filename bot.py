@@ -18,6 +18,11 @@ from attack import Attack
 from transport_manager import TransportManager
 from config import options
 from sim import Sim
+
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+
+
 socket.setdefaulttimeout(float(options['general']['timeout']))
 
 
@@ -229,6 +234,35 @@ class Bot(object):
             self.logged_in = False
             self.logger.error('Login failed!')
             return False
+
+    def login_lobby(self, username=None, password=None, server=None):
+        username = username or self.username
+        password = password or self.password
+        server = server or self.server
+
+        driver = webdriver.Chrome()
+        driver.get("https://it.ogame.gameforge.com")
+
+        # Chiudo banner
+        driver.find_element_by_link_text("x").click()
+
+        # Vado sulla Login Form
+        driver.find_element_by_link_text("Login").click()
+
+        # Immetto Credenziali
+        usernameLogin = driver.find_element_by_id("usernameLogin")
+        passwordLogin = driver.find_element_by_id("passwordLogin")
+
+        usernameLogin.send_keys(username)
+        passwordLogin.send_keys(password)
+
+        # Clocco su login
+        driver.find_element_by_id("loginSubmit").click()
+
+        # Vado in errore per tenere aperto il browser per test
+        driver.find_element_by_id("ASDhasujhasddas")
+
+        return False
 
     def calc_time(self, resp):
         try:
@@ -529,9 +563,8 @@ class Bot(object):
         self.logger.info('Sending fleet from %s to %s (%s)' \
             % (origin_planet, destination, mission))
 
-        resp = self.br.open(self._get_url('fleet', origin_planet))
-
         try:
+            resp = self.br.open(self._get_url('fleet', origin_planet))
             try:
                 self.br.select_form(name='shipsChosen')
             except mechanize.FormNotFoundError:
@@ -589,6 +622,7 @@ class Bot(object):
         except Exception as e:
             self.logger.exception(e)
             return False
+
         return True
 
     def send_message(self, url, player, subject, message):
@@ -776,7 +810,7 @@ class Bot(object):
         while loop:
             # Seleziono pianeta di attacco
             planet = self.find_planet(coords=from_planet, is_moon=True)
-            self.update_planet_resources_farmed(planet,0,0,5000000)
+            self.update_planet_resources_farmed(planet,0,0,100000)
             # Controllo che ci siano farm
             l = len(farms)
             if not(l == 0 or not farms[0]):
@@ -828,7 +862,7 @@ class Bot(object):
         file(self.pidfile, 'w').write(self.pid)
         
         # Semplificato con la sola esecuzione del Farming Bot
-        if self.login():
+        if self.login_lobby():
             try:
 
                 while True:

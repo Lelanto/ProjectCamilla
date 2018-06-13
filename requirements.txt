@@ -2,3 +2,4 @@ mechanize
 BeautifulSoup
 watchdog
 lxml
+selenium
