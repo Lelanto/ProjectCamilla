@@ -255,7 +255,7 @@ class Bot(object):
             time.sleep(2)
 
             # Recupero URL login
-            driver.get("https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=" + player_id + "&server[language]=it&server[number]= " + number)
+            driver.get("https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=" + player_id + "&server[language]=it&server[number]=" + number)
             time.sleep(2)
 
             # Richiamo il login
