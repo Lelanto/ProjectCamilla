@@ -146,7 +146,6 @@ class Bot(object):
             'Jhonny ricordati… che di gente come te ho ancora i pezzi in frigo.',
             'Jhonny le pause tra i tuoi discorsi sono le cose più interessanti che dici',
             'Jhonny se tu in questo momento ingerissi un moscerino avresti più cervello nello stomaco che in testa!',
-            'Jhonny se tu in questo momento ingerissi un moscerino avresti più cervello nello stomaco che in testa!',
             'Jhonny abbraccia la tazza del cesso e cantagli : "non son degno di te". ',
             'Jhonny devi aver fatto la fila tre volte, quando il buon Dio ha distribuito la stupidità !',
             'Jhonny, ma da piccolo i tuoi genitori ti lanciavano in aria e non ti prendevano?',
