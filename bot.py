@@ -31,6 +31,7 @@ class Bot(object):
     RE_BUILD_REQUEST = re.compile(r"sendBuildRequest\(\'(.*)\', null, 1\)")
     RE_SERVER_TIME = re.compile(r"var serverTime=new Date\((.*)\);var localTime")
 
+
     # ship -> ship id on the page
     SHIPS = {
         'lm': '204',
@@ -83,6 +84,16 @@ class Bot(object):
         self.logged_in = False
 
         self._prepare_logger()
+        self._prepare_browser()
+
+        # Comandi gestiti dal bot
+        self.chatIdTelegram = options['credentials']['chat_id_telegram']
+        self.botTelegram = options['credentials']['bot_telegram']
+
+        self.CMD_STOP = False
+        self.CMD_PING = False
+        self.CMD_FARM = True
+        self.CMD_LOGIN = True
 
         n = 1
         self.farm_no = []
@@ -127,6 +138,16 @@ class Bot(object):
         self.transport_manager = TransportManager()
         self.sim = Sim()
 
+        self.INSULTI_A_JONNY = [
+            'Jhonny sei utile come una sonda contro una rip',
+            'Jhonny stanotte ti ho sognato mentre ti salutavo dall alto. Tu eri bello abbronzato e immerso nell acqua, poi ho tirato lo scarico e sei sparito.',
+            'Jhonny ti informo che da oggi puoi acquistare a soli 18 euro il kit di espansione del tuo cervello. Prova anche tu il piacere di formulare frasi e pensieri corretti.',
+            'Jhonny sei così grosso che una mosca per farti un giro intorno muore di vecchiaia.',
+            'Jhonny ricordati… che di gente come te ho ancora i pezzi in frigo.',
+            'Jhonny le pause tra i tuoi discorsi sono le cose più interessanti che dici',
+            'Jhonny le tu in questo momento ingerissi un moscerino avresti più cervello nello stomaco che in testa!',
+        ]
+
     def _get_url(self, page, planet=None):
         url = self.PAGES[page]
         if planet is not None:
@@ -144,6 +165,15 @@ class Bot(object):
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(fh)
         self.logger.addHandler(sh)
+
+    def _prepare_browser(self):
+        # Instantiate a Browser and set the cookies
+        self.br = mechanize.Browser()
+        self.br.set_handle_equiv(True)
+        self.br.set_handle_redirect(True)
+        self.br.set_handle_referer(True)
+        self.br.set_handle_robots(False)
+        self.br.addheaders = self.HEADERS
 
     def _parse_build_url(self, js):
         """
@@ -274,20 +304,14 @@ class Bot(object):
                                                domain_initial_dot=False, path=s_cookie['path'], path_specified=True,
                                                secure=s_cookie['secure'], expires=None, discard=False,
                                                comment=None, comment_url=None, rest=None, rfc2109=False))
-
-            # Instantiate a Browser and set the cookies
-            self.br = mechanize.Browser()
             self.br.set_cookiejar(cj)
-            self.br.set_handle_equiv(True)
-            self.br.set_handle_redirect(True)
-            self.br.set_handle_referer(True)
-            self.br.set_handle_robots(False)
-            self.br.addheaders = self.HEADERS
         except:
+            self.logged_in = False;
             return False
 
         # Chiudo il browser
         driver.quit()
+        self.logged_in = True;
         return True
 
     def calc_time(self, resp):
@@ -687,8 +711,7 @@ class Bot(object):
                 self.fleet_save(a.planet)
 
     def check_attacks(self, soup):
-        chatIdTelegram = options['credentials']['chat_id_telegram']
-        botTelegram = options['credentials']['bot_telegram']
+
         alert = soup.find(id='attack_alert')
         if not alert:
             self.logger.exception('Check attack failed')
@@ -702,7 +725,7 @@ class Bot(object):
             soup = BeautifulSoup(resp)
             hostile = False
             attack_id = 0
-            url = 'https://api.telegram.org/' + str(botTelegram) + '/sendMessage?'
+
             text = ''
             arrivalTime = ''
             originCoords = []
@@ -775,13 +798,17 @@ class Bot(object):
                     detailsFleet = []
                     player = []
                     attackNew = False
-                if chatIdTelegram != '':
-                    data = urlencode({'chat_id': chatIdTelegram, 'text': text})
-                    self.br.open(url, data=data)
+                    self.send_telegram_message(text)
                 if not hostile:
                     self.active_attacks = []
             except Exception as e:
                 self.logger.exception(e)
+
+    def send_telegram_message(self, message):
+        url = 'https://api.telegram.org/' + str(self.botTelegram) + '/sendMessage?'
+        if self.chatIdTelegram != '':
+            data = urlencode({'chat_id': self.chatIdTelegram, 'text': message})
+            self.br.open(url, data=data)
 
     def fleet_save(self, p):
         if not p.has_ships():
@@ -825,14 +852,18 @@ class Bot(object):
     def get_command_from_telegram_bot(self):
         import json
         import time
+
         chatIdTelegram = options['credentials']['chat_id_telegram']
         botTelegram = options['credentials']['bot_telegram']
         lastUpdateIdTelegram = options['credentials']['last_update_id']
+
         url = 'https://api.telegram.org/' + str(botTelegram) + '/getUpdates?'
+
         resp = self.br.open(url)
         soup = BeautifulSoup(resp)
         data_json = json.loads(str(soup))
         result = data_json['result']
+
         for id in range(0, len(result)):
             url = 'https://api.telegram.org/' + str(botTelegram) + '/sendMessage?'
             text = ''
@@ -843,29 +874,40 @@ class Bot(object):
             currentTime = int(time.time()) - 300
             if timeMessage > currentTime and update_id > int(lastUpdateIdTelegram) and chatId == int(chatIdTelegram):
                 options.updateValue('credentials', 'last_update_id', str(update_id))
+
                 if text == '/resourcesfarmed':
                     response = ''
                     n = 1
                     from_planet = options['farming'][self.bn_from_planet + str(n)]
                     loop = True;
                     while loop:
-                        # Seleziono pianeta di attacco
                         planet = self.find_planet(coords=from_planet, is_moon=True)
                         response = response + self.update_planet_resources_farmed(planet, 0, 0, 5000000)
-                        # Controllo che ci siano farm
                         n += 1
                         try:
                             from_planet = options['farming'][self.bn_from_planet + str(n)]
                         except Exception as e:
                             loop = False
-                    data = urlencode({'chat_id': chatId, 'text': response})
-                    self.br.open(url, data=data)
+                    self.send_telegram_message(response)
                 elif text == '/ping':
-                    data = urlencode({'chat_id': chatId, 'text': 'PONG'})
-                    self.br.open(url, data=data)
+                    self.send_telegram_message("Pong")
                 elif text == '/jhonny':
-                    data = urlencode({'chat_id': chatId, 'text': 'Jhonny sei utile come una sonda contro una rip'})
-                    self.br.open(url, data=data)
+                    self.send_telegram_message(self.INSULTI_A_JONNY[randint(0, len(self.INSULTI_A_JONNY))])
+                elif text == '/stop':
+                    self.CMD_STOP = True
+                elif text == '/stop_farmer':
+                    self.CMD_FARM = False
+                    self.send_telegram_message('Farmer fermato.')
+                elif text == '/start_farmer':
+                    self.CMD_FARM = True
+                    self.send_telegram_message('Farmer riattivato.')
+                elif text == '/is_logged':
+                    self.send_telegram_message("Loggato: " + str(self.logged_in))
+                elif text == '/login':
+                    self.CMD_LOGIN = True
+                elif text == '/logout':
+                    self.logged_in =False;
+                    self._prepare_browser()
 
     #
     # Invio farmata di sonde
@@ -934,21 +976,26 @@ class Bot(object):
         self.pidfile = 'bot.pid'
         file(self.pidfile, 'w').write(self.pid)
 
-        # Semplificato con la sola esecuzione del Farming Bot
-        if self.login_lobby():
+        while(not self.CMD_STOP):
             try:
+                self.get_command_from_telegram_bot()
 
-                while True:
-                    self.get_command_from_telegram_bot()
-                    self.fetch_planets()
-                    self.farm()
-                    self.sleep()
+                if(self.CMD_LOGIN):
+                   self.login_lobby()
+                   self.CMD_LOGIN = False;
+
+                if(self.logged_in):
+                    if(self.CMD_FARM):
+                       self.fetch_planets()
+                       self.farm()
 
             except Exception as e:
-                self.logger.exception(e)
-        else:
-            self.logger.error('Login failed!')
+                self.send_telegram_message("Errore: " + e.message.decode())
 
+            self.sleep()
+
+        self.send_telegram_message("Bot Spento")
+        self.stop()
 
 if __name__ == "__main__":
     credentials = options['credentials']
