@@ -18,13 +18,14 @@ class Planet(object):
             'crystalMine',
             'deuteriumMine'
         )
+
         self.resources = {
             'metal': 0,
             'crystal': 0,
             'deuterium':0,
             'energy':0
         }
-        
+
         self.buildings = {
             'metalMine': {
                 'level': 0,

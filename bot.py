@@ -94,6 +94,7 @@ class Bot(object):
         self.CMD_PING = False
         self.CMD_FARM = True
         self.CMD_LOGIN = True
+        self.CMD_GET_FARMED_RES = False;
 
         n = 1
         self.farm_no = []
@@ -102,11 +103,10 @@ class Bot(object):
         loop = True;
         while loop:
             try:
-                self.logger.info("Inizio")
                 farms = options['farming'][self.bn_farms + str(n)].split(' ')
                 self.farm_no.append((randint(0, len(farms) - 1) if farms else 0))
                 from_planet = options['farming'][self.bn_from_planet + str(n)]
-                self.logger.info("Per il pianeta" + from_planet + " inizio dalla farm n: " + str(self.farm_no[n - 1]))
+                self.logger.info("Pianeta: " + from_planet + " Inizio dalla farm n: " + str(self.farm_no[n - 1]))
                 n += 1
             except Exception as e:
                 loop = False
@@ -389,27 +389,33 @@ class Bot(object):
         # self.logger.info('%s' % fleet)
         planet.ships = ships
 
-    def update_planet_resources_farmed(self, planet, baseMetal, baseCrystal, baseDeuterium):
-        # Seleziono pianeta di attacco
-        resp = self.br.open(self._get_url('fleet', planet))
-        soup = BeautifulSoup(resp)
+    def update_planet_resources_farmed(self, planet):
         try:
-            metal = int(soup.find(id='resources_metal').text.replace('.', '')) - baseMetal
-            crystal = int(soup.find(id='resources_crystal').text.replace('.', '')) - baseCrystal
-            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', '')) - baseDeuterium
-            totalResoucesFarmed = metal + crystal + deuterium
+            resp = self.br.open(self._get_url('fleet', planet))
+            soup = BeautifulSoup(resp)
+            metal = int(soup.find(id='resources_metal').text.replace('.', '')) - planet.resources['metal']
+            crystal = int(soup.find(id='resources_crystal').text.replace('.', '')) - planet.resources['crystal']
+            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', '')) - planet.resources['deuterium']
+
+            text = 'Pianeta: ' + str(planet.coords) + \
+                   '\n\t\t\tTotale risorse farmate: ' + "{:.}".format(metal + crystal + deuterium) + \
+                   '\n\t\t\t\t\t\tMetallo: ' + "{:.}".format(metal) + \
+                   '\n\t\t\t\t\t\tCristallo: ' + "{:.}".format(crystal) + \
+                   '\n\t\t\t\t\t\tDeuterio: ' + "{:.}".format(deuterium) + '\n\n'
         except:
-            self.logger.exception('Exception while updating resources info')
-        text = 'Pianeta: ' + str(planet.coords) + ' Metallo: ' + str(metal) + ' - Cristallo: ' + str(
-            crystal) + ' - Deuterio: ' + str(deuterium) + "\n"
-        text = text + 'Pianeta: ' + str(planet.coords) + ' Totale risorse farmate: ' + str(totalResoucesFarmed)
+            text = 'Exception while updating resources info'
+
         return text
 
     def update_planet_info(self, planet):
+        self.miniSleep()
+
         in_construction_mode = False
+        self.logger.info('Carico le risorse del pianeta: ' + planet.coords)
         resp = self.br.open(self._get_url('resources', planet))
         soup = BeautifulSoup(resp)
 
+        # Per ora carico solo le risorse. Il resto non serve
         try:
             metal = int(soup.find(id='resources_metal').text.replace('.', ''))
             planet.resources['metal'] = metal
@@ -421,57 +427,58 @@ class Bot(object):
             planet.resources['energy'] = energy
         except:
             self.logger.exception('Exception while updating resources info')
-        else:
-            self.logger.info('Updating resources info for %s:' % planet)
-            s = 'metal - %(metal)s, crystal - %(crystal)s, deuterium - %(deuterium)s'
-            self.logger.info(s % planet.resources)
-        if planet.is_moon():
-            return
-        try:
-            buildingList = soup.find(id='building')
-            buildings = ('metalMine', 'crystalMine', 'deuteriumMine', 'solarPlant',
-                         'fusionPlant', 'solarSatellite'
-                         )
-            for building, b in zip(buildings, buildingList.findAll('li')):
-                can_build = 'on' in b.get('class')
-                fb = b.find('a', 'fastBuild')
-                build_url = fb.get('onclick') if fb else ''
-                if build_url:
-                    build_url = self._parse_build_url(build_url)
-                try:
-                    level = int(b.find('span', 'textlabel').nextSibling)
-                except AttributeError:
-                    try:
-                        level = int(b.find('span', 'level').text)
-                    except:
-                        pass
-                suff_energy = planet.resources['energy'] - self.sim.upgrade_energy_cost(building, level + 1) > 0
-                res = dict(
-                    level=level,
-                    can_build=can_build,
-                    build_url=build_url,
-                    sufficient_energy=suff_energy
-                )
 
-                planet.buildings[building] = res
+        #
+        # Matteo: Codice commentato perche inutile
+        #
+        # if planet.is_moon():
+        #     return
+        # try:
+        #     buildingList = soup.find(id='building')
+        #     buildings = ('metalMine', 'crystalMine', 'deuteriumMine', 'solarPlant',
+        #                  'fusionPlant', 'solarSatellite'
+        #                  )
+        #     for building, b in zip(buildings, buildingList.findAll('li')):
+        #         can_build = 'on' in b.get('class')
+        #         fb = b.find('a', 'fastBuild')
+        #         build_url = fb.get('onclick') if fb else ''
+        #         if build_url:
+        #             build_url = self._parse_build_url(build_url)
+        #         try:
+        #             level = int(b.find('span', 'textlabel').nextSibling)
+        #         except AttributeError:
+        #             try:
+        #                 level = int(b.find('span', 'level').text)
+        #             except:
+        #                 pass
+        #         suff_energy = planet.resources['energy'] - self.sim.upgrade_energy_cost(building, level + 1) > 0
+        #         res = dict(
+        #             level=level,
+        #             can_build=can_build,
+        #             build_url=build_url,
+        #             sufficient_energy=suff_energy
+        #         )
+        #
+        #         planet.buildings[building] = res
+        #
+        #     if buildingList.find('div', 'construction'):
+        #         in_construction_mode = True
+        # except:
+        #     self.logger.exception('Exception while updating buildings info')
+        #     return False
+        # else:
+        #     self.logger.info('%s buildings were updated' % planet)
+        # if not in_construction_mode:
+        #     text, url = planet.get_mine_to_upgrade()
+        #     if url:
+        #         self.logger.info('Building upgrade on %s: %s' % (planet, text))
+        #         self.br.open(url)
+        #         planet.in_construction_mode = True
+        #         # let now transport manager to clear building queue
+        #         self.transport_manager.update_building(planet)
+        # else:
+        #     self.logger.info('Building queue is not empty')
 
-            if buildingList.find('div', 'construction'):
-                in_construction_mode = True
-        except:
-            self.logger.exception('Exception while updating buildings info')
-            return False
-        else:
-            self.logger.info('%s buildings were updated' % planet)
-        if not in_construction_mode:
-            text, url = planet.get_mine_to_upgrade()
-            if url:
-                self.logger.info('Building upgrade on %s: %s' % (planet, text))
-                self.br.open(url)
-                planet.in_construction_mode = True
-                # let now transport manager to clear building queue
-                self.transport_manager.update_building(planet)
-        else:
-            self.logger.info('Building queue is not empty')
         return True
 
     def transport_resources(self):
@@ -876,19 +883,7 @@ class Bot(object):
                 options.updateValue('credentials', 'last_update_id', str(update_id))
 
                 if text == '/resourcesfarmed':
-                    response = ''
-                    n = 1
-                    from_planet = options['farming'][self.bn_from_planet + str(n)]
-                    loop = True;
-                    while loop:
-                        planet = self.find_planet(coords=from_planet, is_moon=True)
-                        response = response + self.update_planet_resources_farmed(planet, 0, 0, 5000000)
-                        n += 1
-                        try:
-                            from_planet = options['farming'][self.bn_from_planet + str(n)]
-                        except Exception as e:
-                            loop = False
-                    self.send_telegram_message(response)
+                    self.CMD_GET_FARMED_RES = True
                 elif text == '/ping':
                     self.send_telegram_message("Pong")
                 elif text == '/jhonny':
@@ -927,7 +922,7 @@ class Bot(object):
         while loop:
             # Seleziono pianeta di attacco
             planet = self.find_planet(coords=from_planet, is_moon=True)
-            self.update_planet_resources_farmed(planet, 0, 0, 100000)
+
             # Controllo che ci siano farm
             l = len(farms)
             if not (l == 0 or not farms[0]):
@@ -952,6 +947,28 @@ class Bot(object):
             except Exception as e:
                 loop = False
 
+    def send_farmed_res(self):
+        response = ''
+        n = 1
+        from_planet = options['farming'][self.bn_from_planet + str(n)]
+        loop = True;
+        try:
+            while loop:
+                planet = self.find_planet(coords=from_planet, is_moon=True)
+                response = response + self.update_planet_resources_farmed(planet)
+                n += 1
+                try:
+                    from_planet = options['farming'][self.bn_from_planet + str(n)]
+                except:
+                    loop = False
+
+        except Exception as e:
+            self.logger.exception(e)
+            response = "Errore lettura risorse farmate: " + e.message.decode()
+
+        self.send_telegram_message(response)
+        self.CMD_GET_FARMED_RES = False
+
     def sleep(self):
         sleep_options = options['general']
         min = int(sleep_options['seed']) - randint(0, int(sleep_options['check_interval']))
@@ -970,6 +987,26 @@ class Bot(object):
         self.logger.info('Stopping bot')
         os.unlink(self.pidfile)
 
+    def load_farming_planets_info(self):
+        response = ''
+        n = 1
+        from_planet = options['farming'][self.bn_from_planet + str(n)]
+        loop = True
+        try:
+            while loop:
+                planet = self.find_planet(coords=from_planet, is_moon=True)
+                self.update_planet_info(planet)
+                try:
+                    n += 1
+                    from_planet = options['farming'][self.bn_from_planet + str(n)]
+                except:
+                    loop = False
+
+        except Exception as e:
+            self.logger.exception(e)
+
+
+
     def start(self):
         self.logger.info('Starting bot')
         self.pid = str(os.getpid())
@@ -982,12 +1019,15 @@ class Bot(object):
 
                 if(self.CMD_LOGIN):
                    self.login_lobby()
+                   self.fetch_planets()
+                   self.load_farming_planets_info()
                    self.CMD_LOGIN = False;
 
                 if(self.logged_in):
+                    if (self.CMD_GET_FARMED_RES):
+                        self.send_farmed_res()
                     if(self.CMD_FARM):
-                       self.fetch_planets()
-                       self.farm()
+                        self.farm()
 
             except Exception as e:
                 self.logger.exception(e)
