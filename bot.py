@@ -990,6 +990,7 @@ class Bot(object):
                        self.farm()
 
             except Exception as e:
+                self.logger.exception(e)
                 self.send_telegram_message("Errore: " + e.message.decode())
 
             self.sleep()
