@@ -49,6 +49,14 @@ class Options(watchdog.events.FileSystemEventHandler):
         except ConfigParser.NoSectionError:
             self._config_valid = False
 
+    def updateValue(self,section,key,value):
+        from ConfigParser import SafeConfigParser
+        parser = SafeConfigParser()
+        parser.read(self.CONFIG_FILE)
+        parser.set(section, key, value)
+        with open(self.CONFIG_FILE, 'wb') as configfile:
+            parser.write(configfile)
+
     def __getitem__(self, section):
 
         return dict(self._config.items(section))

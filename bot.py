@@ -22,18 +22,16 @@ from sim import Sim
 from selenium import webdriver
 import cookielib
 
-
-
 socket.setdefaulttimeout(float(options['general']['timeout']))
 
 
 class Bot(object):
-
-    HEADERS = [('User-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36')]
+    HEADERS = [('User-agent',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36')]
     RE_BUILD_REQUEST = re.compile(r"sendBuildRequest\(\'(.*)\', null, 1\)")
     RE_SERVER_TIME = re.compile(r"var serverTime=new Date\((.*)\);var localTime")
 
-    #ship -> ship id on the page
+    # ship -> ship id on the page
     SHIPS = {
         'lm': '204',
         'hm': '205',
@@ -56,13 +54,13 @@ class Bot(object):
         'transport': '3',
         'station': '4',
         'expedition': '15',
-        'collect' : '8'
+        'collect': '8'
     }
 
     TARGETS = {
-        'planet' : '1',
-        'moon' : '3',
-        'debris' : '2'
+        'planet': '1',
+        'moon': '3',
+        'debris': '2'
     }
 
     SPEEDS = {
@@ -77,19 +75,19 @@ class Bot(object):
         20: '2',
         10: '1'
     }
-    
+
     def __init__(self, username=None, password=None, server=None):
         self.server = server
         self.username = username
         self.password = password
         self.logged_in = False
-        
+
         self._prepare_logger()
 
         n = 1
         self.farm_no = []
         self.bn_farms = 'farms_';
-        self. bn_from_planet = 'from_planet_';
+        self.bn_from_planet = 'from_planet_';
         loop = True;
         while loop:
             try:
@@ -97,24 +95,24 @@ class Bot(object):
                 farms = options['farming'][self.bn_farms + str(n)].split(' ')
                 self.farm_no.append((randint(0, len(farms) - 1) if farms else 0))
                 from_planet = options['farming'][self.bn_from_planet + str(n)]
-                self.logger.info("Per il pianeta" +from_planet+ " inizio dalla farm n: " + str(self.farm_no[n-1]))
+                self.logger.info("Per il pianeta" + from_planet + " inizio dalla farm n: " + str(self.farm_no[n - 1]))
                 n += 1
             except Exception as e:
                 loop = False
 
-        self.MAIN_URL =  'https://' + self.server + '/game/index.php'
+        self.MAIN_URL = 'https://' + self.server + '/game/index.php'
         self.PAGES = {
-            'main':        self.MAIN_URL + '?page=overview',
-            'resources':   self.MAIN_URL + '?page=resources',
-            'station':     self.MAIN_URL + '?page=station',
-            'research':    self.MAIN_URL + '?page=research',
-            'shipyard':    self.MAIN_URL + '?page=shipyard',
-            'defense':     self.MAIN_URL + '?page=defense',
-            'fleet':       self.MAIN_URL + '?page=fleet1',
-            'galaxy':      self.MAIN_URL + '?page=galaxy',
-            'galaxyCnt':   self.MAIN_URL + '?page=galaxyContent',
-            'events':      self.MAIN_URL + '?page=eventList',
-            'messages':    self.MAIN_URL + '?page=messages',
+            'main': self.MAIN_URL + '?page=overview',
+            'resources': self.MAIN_URL + '?page=resources',
+            'station': self.MAIN_URL + '?page=station',
+            'research': self.MAIN_URL + '?page=research',
+            'shipyard': self.MAIN_URL + '?page=shipyard',
+            'defense': self.MAIN_URL + '?page=defense',
+            'fleet': self.MAIN_URL + '?page=fleet1',
+            'galaxy': self.MAIN_URL + '?page=galaxy',
+            'galaxyCnt': self.MAIN_URL + '?page=galaxyContent',
+            'events': self.MAIN_URL + '?page=eventList',
+            'messages': self.MAIN_URL + '?page=messages',
         }
         self.planets = []
         self.moons = []
@@ -134,7 +132,7 @@ class Bot(object):
         if planet is not None:
             url += '&cp=%s' % planet.id
         return url
-        
+
     def _prepare_logger(self):
         self.logger = logging.getLogger("mechanize")
         fh = RotatingFileHandler('bot.log', maxBytes=100000, backupCount=5)
@@ -146,7 +144,6 @@ class Bot(object):
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(fh)
         self.logger.addHandler(sh)
-        
 
     def _parse_build_url(self, js):
         """
@@ -156,7 +153,7 @@ class Bot(object):
 
     def _parse_server_time(self, content):
         return self.RE_SERVER_TIME.findall(content)[0]
-    
+
     def get_mother(self):
         for p in self.planets:
             if p.mother:
@@ -166,10 +163,10 @@ class Bot(object):
     def get_closest_planet(self, p):
         def min_dist(p, d):
             return d
-        _, d, _ = p.split(":")
-        return sorted([(planet, planet.get_distance(p)) for planet in self.planets], 
-            key=lambda x: x[1])[0][0]
 
+        _, d, _ = p.split(":")
+        return sorted([(planet, planet.get_distance(p)) for planet in self.planets],
+                      key=lambda x: x[1])[0][0]
 
     def find_planet(self, name=None, coords=None, id=None, is_moon=None):
         if is_moon:
@@ -201,7 +198,7 @@ class Bot(object):
             soup = BeautifulSoup(resp)
         except:
             return False
-        
+
         alert = soup.find(id='attack_alert')
 
         # no redirect on main page == user logged in
@@ -209,7 +206,7 @@ class Bot(object):
             self.logged_in = True
             self.logger.info('Logged as: %s' % username)
             return True
-        
+
         self.logger.info('Logging in..')
         self.br.select_form(name='loginForm')
 
@@ -255,13 +252,16 @@ class Bot(object):
             time.sleep(2)
 
             # Recupero URL login
-            driver.get("https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=" + player_id + "&server[language]=it&server[number]=" + number)
+            driver.get(
+                "https://lobby-api.ogame.gameforge.com/users/me/loginLink?id=" + player_id + "&server[language]=it&server[number]=" + number)
             time.sleep(2)
 
             # Richiamo il login
             html = driver.page_source
             soup = BeautifulSoup(html)
-            url = 'https://' + server + '/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}', '').replace('&amp;', '&')
+            url = 'https://' + server + '/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}',
+                                                                                                              '').replace(
+                '&amp;', '&')
             driver.get(url)
 
             # Passo i cookie e la sessione a mechanize
@@ -301,7 +301,7 @@ class Bot(object):
             self.time_diff = self.server_time - self.local_time
 
             self.logger.info('Server time: %s, local time: %s' % \
-                (self.server_time, self.local_time))
+                             (self.server_time, self.local_time))
 
     def fetch_planets(self):
         self.logger.info('Fetching planets..')
@@ -326,7 +326,7 @@ class Bot(object):
                     p.mother = True
                 self.planets.append(p)
 
-                #check if planet has moon
+                # check if planet has moon
                 moon = c.parent.find('a', 'moonlink')
                 if moon and 'moonlink' in moon['class']:
                     url = moon.get('href')
@@ -361,23 +361,25 @@ class Bot(object):
                 available = 0
             ships[k] = available
 
-        #self.logger.info('Updating %s fleet' % planet)
-        #self.logger.info('%s' % fleet)
+        # self.logger.info('Updating %s fleet' % planet)
+        # self.logger.info('%s' % fleet)
         planet.ships = ships
 
-    def update_planet_resources_farmed(self,planet,baseMetal,baseCrystal,baseDeuterium):
+    def update_planet_resources_farmed(self, planet, baseMetal, baseCrystal, baseDeuterium):
         # Seleziono pianeta di attacco
-        resp = self.br.open(self._get_url('fleet',planet))
+        resp = self.br.open(self._get_url('fleet', planet))
         soup = BeautifulSoup(resp)
         try:
-            metal = int(soup.find(id='resources_metal').text.replace('.',''))-baseMetal
-            crystal = int(soup.find(id='resources_crystal').text.replace('.',''))-baseCrystal
-            deuterium = int(soup.find(id='resources_deuterium').text.replace('.',''))-baseDeuterium
-            totalResoucesFarmed= metal+crystal+deuterium
+            metal = int(soup.find(id='resources_metal').text.replace('.', '')) - baseMetal
+            crystal = int(soup.find(id='resources_crystal').text.replace('.', '')) - baseCrystal
+            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', '')) - baseDeuterium
+            totalResoucesFarmed = metal + crystal + deuterium
         except:
             self.logger.exception('Exception while updating resources info')
-        self.logger.info('Pianeta: '+str(planet.coords)+' Metallo: ' + str(metal) + ' - Cristallo: '+str(crystal)+ ' - Deuterio: '+ str(deuterium))
-        self.logger.info('Pianeta: '+str(planet.coords)+' Totale risorse farmate: ' + str(totalResoucesFarmed))
+        text = 'Pianeta: ' + str(planet.coords) + ' Metallo: ' + str(metal) + ' - Cristallo: ' + str(
+            crystal) + ' - Deuterio: ' + str(deuterium) + "\n"
+        text = text + 'Pianeta: ' + str(planet.coords) + ' Totale risorse farmate: ' + str(totalResoucesFarmed)
+        return text
 
     def update_planet_info(self, planet):
         in_construction_mode = False
@@ -385,13 +387,13 @@ class Bot(object):
         soup = BeautifulSoup(resp)
 
         try:
-            metal = int(soup.find(id='resources_metal').text.replace('.',''))
+            metal = int(soup.find(id='resources_metal').text.replace('.', ''))
             planet.resources['metal'] = metal
-            crystal = int(soup.find(id='resources_crystal').text.replace('.',''))
+            crystal = int(soup.find(id='resources_crystal').text.replace('.', ''))
             planet.resources['crystal'] = crystal
-            deuterium = int(soup.find(id='resources_deuterium').text.replace('.',''))
+            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', ''))
             planet.resources['deuterium'] = deuterium
-            energy = int(soup.find(id='resources_energy').text.replace('.',''))
+            energy = int(soup.find(id='resources_energy').text.replace('.', ''))
             planet.resources['energy'] = energy
         except:
             self.logger.exception('Exception while updating resources info')
@@ -404,8 +406,8 @@ class Bot(object):
         try:
             buildingList = soup.find(id='building')
             buildings = ('metalMine', 'crystalMine', 'deuteriumMine', 'solarPlant',
-                'fusionPlant', 'solarSatellite'
-            )
+                         'fusionPlant', 'solarSatellite'
+                         )
             for building, b in zip(buildings, buildingList.findAll('li')):
                 can_build = 'on' in b.get('class')
                 fb = b.find('a', 'fastBuild')
@@ -419,9 +421,9 @@ class Bot(object):
                         level = int(b.find('span', 'level').text)
                     except:
                         pass
-                suff_energy = planet.resources['energy'] - self.sim.upgrade_energy_cost(building, level+1) > 0
+                suff_energy = planet.resources['energy'] - self.sim.upgrade_energy_cost(building, level + 1) > 0
                 res = dict(
-                    level=level, 
+                    level=level,
                     can_build=can_build,
                     build_url=build_url,
                     sufficient_energy=suff_energy
@@ -439,10 +441,10 @@ class Bot(object):
         if not in_construction_mode:
             text, url = planet.get_mine_to_upgrade()
             if url:
-                self.logger.info('Building upgrade on %s: %s'% (planet, text))
+                self.logger.info('Building upgrade on %s: %s' % (planet, text))
                 self.br.open(url)
                 planet.in_construction_mode = True
-                #let now transport manager to clear building queue
+                # let now transport manager to clear building queue
                 self.transport_manager.update_building(planet)
         else:
             self.logger.info('Building queue is not empty')
@@ -455,10 +457,10 @@ class Bot(object):
         self.logger.info(self.transport_manager.get_summary())
         for task in iter(tasks):
             self.logger.info('Transport attempt from: %s, to: %s with resources %s' \
-                % (task['from'], task['where'], task['resources']))
+                             % (task['from'], task['where'], task['resources']))
             result = self.send_fleet(
-                task['from'], 
-                task['where'].coords, 
+                task['from'],
+                task['where'].coords,
                 fleet=task['from'].get_fleet_for_resources(task['resources']),
                 resources=task['resources'],
                 mission='transport'
@@ -466,7 +468,7 @@ class Bot(object):
             if result:
                 self.transport_manager.update_sent_resources(task['resources'])
                 self.logger.info('Resources sent: %s, resources needed: %s' \
-                    % (task['resources'], self.transport_manager.get_resources_needed()))
+                                 % (task['resources'], self.transport_manager.get_resources_needed()))
 
         return True
 
@@ -483,15 +485,15 @@ class Bot(object):
         resp = self.br.open(url)
         for t in ('406', '404', '403', '402', '401'):
             self.br.select_form(name='form')
-            self.br.form.new_control('text','menge',{'value':'100'})
+            self.br.form.new_control('text', 'menge', {'value': '100'})
             self.br.form.fixup()
             self.br['menge'] = '100'
 
-            self.br.form.new_control('text','type',{'value':t})
+            self.br.form.new_control('text', 'type', {'value': t})
             self.br.form.fixup()
             self.br['type'] = t
 
-            self.br.form.new_control('text','modus',{'value':'1'})
+            self.br.form.new_control('text', 'modus', {'value': '1'})
             self.br.form.fixup()
             self.br['modus'] = '1'
 
@@ -500,7 +502,7 @@ class Bot(object):
     def get_player_status(self, destination, origin_planet=None):
         if not destination:
             return
-            
+
         status = {}
         origin_planet = origin_planet or self.get_closest_planet(destination)
         galaxy, system, position = destination.split(':')
@@ -512,7 +514,7 @@ class Bot(object):
 
         soup.find(id='galaxytable')
         planets = soup.findAll('tr', {'class': 'row'})
-        target_planet = planets[int(position)-1]
+        target_planet = planets[int(position) - 1]
         name_el = target_planet.find('td', 'playername')
         status['name'] = name_el.find('span').text
 
@@ -521,8 +523,8 @@ class Bot(object):
 
     def find_inactive_nearby(self, planet, radius=15):
 
-        self.logger.info("Searching idlers near %s in radius %s" 
-            % (planet, radius))
+        self.logger.info("Searching idlers near %s in radius %s"
+                         % (planet, radius))
 
         nearby_systems = planet.get_nearby_systems(radius)
         idlers = []
@@ -580,14 +582,14 @@ class Bot(object):
         self.logger.info(inactives)
 
     def send_fleet(self, origin_planet, destination, fleet={}, resources={},
-            mission='attack', target='planet', speed=None):
+                   mission='attack', target='planet', speed=None):
 
         if origin_planet.coords == destination:
             self.logger.error('Cannot send fleet to the same planet')
             return False
 
         self.logger.info('Sending fleet from %s to %s (%s)' \
-            % (origin_planet, destination, mission))
+                         % (origin_planet, destination, mission))
 
         try:
             resp = self.br.open(self._get_url('fleet', origin_planet))
@@ -666,7 +668,6 @@ class Bot(object):
         except Exception as e:
             self.logger.exception(str(e))
 
-
     def handle_attacks(self):
         attack_opts = options['attack']
         send_sms = bool(options['sms']['send_sms'])
@@ -680,8 +681,8 @@ class Bot(object):
                     self.send_sms(a.get_sms_text())
                     a.sms_sent = True
                 if send_sms and not a.message_sent:
-                    self.send_message(a.message_url, a.player, attack_opts['message_topic'], 
-                        a.get_random_message())
+                    self.send_message(a.message_url, a.player, attack_opts['message_topic'],
+                                      a.get_random_message())
                     a.message_sent = True
                 self.fleet_save(a.planet)
 
@@ -700,7 +701,7 @@ class Bot(object):
             resp = self.br.open(self.PAGES['events'])
             soup = BeautifulSoup(resp)
             hostile = False
-            attack_id=0
+            attack_id = 0
             url = 'https://api.telegram.org/' + str(botTelegram) + '/sendMessage?'
             text = ''
             arrivalTime = ''
@@ -725,7 +726,8 @@ class Bot(object):
                             typeAttack = 'ATTACCO FEDERATO'
                         else:
                             typeAttack = 'ATTACCO'
-                        if str(typeAttack) != str('ATTACCO FEDERATO') and tr.get('class').split(' ')[0]!= 'partnerInfo':
+                        if str(typeAttack) != str('ATTACCO FEDERATO') and tr.get('class').split(' ')[
+                            0] != 'partnerInfo':
                             attackNew = True
                             try:
                                 # Attack first discovered: save attack info
@@ -741,7 +743,7 @@ class Bot(object):
                                 player.append(tr.find('td', 'sendMail').find('a').get('title'))
                             except Exception as e:
                                 self.logger.exception(e)
-                        elif typeAttack == 'ATTACCO FEDERATO' or tr.get('class').split(' ')[0]== 'partnerInfo':
+                        elif typeAttack == 'ATTACCO FEDERATO' or tr.get('class').split(' ')[0] == 'partnerInfo':
                             if tr.get('class').split(' ')[0] == 'partnerInfo':
                                 coordsOrigin = tr.find('td', 'coordsOrigin')
                                 if coordsOrigin:
@@ -759,12 +761,14 @@ class Bot(object):
 
                     if attackNew:
                         text = text + '\n\n' + str(typeAttack) + ' IN CORSO\n' \
-                    'Orario di arrivo: ' + str(arrivalTime) + '\n' \
-                    'Coordinate di arrivo: ' + str(destCoords) + '\n'
-                    for i in range(0,len(player),1):
+                                                                 'Orario di arrivo: ' + str(arrivalTime) + '\n' \
+                                                                                                           'Coordinate di arrivo: ' + str(
+                            destCoords) + '\n'
+                    for i in range(0, len(player), 1):
                         text = text + '\t\t\t\t\tGIOCATORE: ' + str(player[i]) + '\n' \
-                        '\t\t\t\t\tCoordinate di partenza: ' + str(originCoords[i]) + '\n' \
-                        '\t\t\t\t\tNumero navi in arrivo: ' + str(detailsFleet[i]) + '\n'
+                                                                                 '\t\t\t\t\tCoordinate di partenza: ' + str(
+                            originCoords[i]) + '\n' \
+                                               '\t\t\t\t\tNumero navi in arrivo: ' + str(detailsFleet[i]) + '\n'
                     arrivalTime = ''
                     coordsOrigin = []
                     destCoords = ''
@@ -778,32 +782,32 @@ class Bot(object):
                     self.active_attacks = []
             except Exception as e:
                 self.logger.exception(e)
-                
+
     def fleet_save(self, p):
         if not p.has_ships():
             return
         fleet = p.ships
-        #recyclers are staying!
-        #fleet['rc'] = 0
+        # recyclers are staying!
+        # fleet['rc'] = 0
         self.logger.info('Making fleet save from %s' % p)
-        self.send_fleet(p, 
-            self.get_safe_planet(p).coords, 
-            fleet=fleet, 
-            mission='station',
-            speed=10,
-            resources={'metal': p.resources['metal']+500,
-                       'crystal': p.resources['crystal']+500,
-                       'deuterium': p.resources['deuterium']+500})
+        self.send_fleet(p,
+                        self.get_safe_planet(p).coords,
+                        fleet=fleet,
+                        mission='station',
+                        speed=10,
+                        resources={'metal': p.resources['metal'] + 500,
+                                   'crystal': p.resources['crystal'] + 500,
+                                   'deuterium': p.resources['deuterium'] + 500})
 
     def collect_debris(self, p):
         if not p.has_ships():
             return
         self.logger.info('Collecting debris from %s using %s recyclers' % (p, p.ships['rc']))
-        self.send_fleet(p, 
-            p.coords, 
-            fleet={'rc':p.ships['rc']},
-            mission='collect',
-            target='debris')
+        self.send_fleet(p,
+                        p.coords,
+                        fleet={'rc': p.ships['rc']},
+                        mission='collect',
+                        target='debris')
 
     def send_expedition(self):
         expedition = options['expedition']
@@ -815,8 +819,53 @@ class Bot(object):
                 galaxy, system, position = planet.coords.split(':')
                 expedition_coords = '%s:%s:16' % (galaxy, system)
                 self.send_fleet(planet, expedition_coords,
-                    fleet={expedition['ships_kind']:expedition['ships_number']}, 
-                    mission='expedition')
+                                fleet={expedition['ships_kind']: expedition['ships_number']},
+                                mission='expedition')
+
+    def get_command_from_telegram_bot(self):
+        import json
+        import time
+        chatIdTelegram = options['credentials']['chat_id_telegram']
+        botTelegram = options['credentials']['bot_telegram']
+        lastUpdateIdTelegram = options['credentials']['last_update_id']
+        url = 'https://api.telegram.org/' + str(botTelegram) + '/getUpdates?'
+        resp = self.br.open(url)
+        soup = BeautifulSoup(resp)
+        data_json = json.loads(str(soup))
+        result = data_json['result']
+        for id in range(0, len(result)):
+            url = 'https://api.telegram.org/' + str(botTelegram) + '/sendMessage?'
+            text = ''
+            timeMessage = result[id]['message']['date']
+            chatId = result[id]['message']['chat']['id']
+            text = result[id]['message']['text']
+            update_id = result[id]['update_id']
+            currentTime = int(time.time()) - 300
+            if timeMessage > currentTime and update_id > int(lastUpdateIdTelegram) and chatId == int(chatIdTelegram):
+                options.updateValue('credentials', 'last_update_id', str(update_id))
+                if text == '/resourcesfarmed':
+                    response = ''
+                    n = 1
+                    from_planet = options['farming'][self.bn_from_planet + str(n)]
+                    loop = True;
+                    while loop:
+                        # Seleziono pianeta di attacco
+                        planet = self.find_planet(coords=from_planet, is_moon=True)
+                        response = response + self.update_planet_resources_farmed(planet, 0, 0, 5000000)
+                        # Controllo che ci siano farm
+                        n += 1
+                        try:
+                            from_planet = options['farming'][self.bn_from_planet + str(n)]
+                        except Exception as e:
+                            loop = False
+                    data = urlencode({'chat_id': chatId, 'text': response})
+                    self.br.open(url, data=data)
+                elif text == '/ping':
+                    data = urlencode({'chat_id': chatId, 'text': 'PONG'})
+                    self.br.open(url, data=data)
+                elif text == '/jhonny':
+                    data = urlencode({'chat_id': chatId, 'text': 'Jhonny sei utile come una sonda contro una rip'})
+                    self.br.open(url, data=data)
 
     #
     # Invio farmata di sonde
@@ -836,37 +885,35 @@ class Bot(object):
         while loop:
             # Seleziono pianeta di attacco
             planet = self.find_planet(coords=from_planet, is_moon=True)
-            self.update_planet_resources_farmed(planet,0,0,100000)
+            self.update_planet_resources_farmed(planet, 0, 0, 100000)
             # Controllo che ci siano farm
             l = len(farms)
-            if not(l == 0 or not farms[0]):
+            if not (l == 0 or not farms[0]):
 
                 # Seleziono la prossima farm da attaccare
-                farm = farms[self.farm_no[n-1] % l]
+                farm = farms[self.farm_no[n - 1] % l]
 
                 # Invio attacchi finche ci sono navi
                 while self.send_fleet(
-                           planet,
-                           farm,
-                           fleet={ships_kind:ships_number},
-                           speed=speed):
-                    self.farm_no[n-1] += 1
-                    farm = farms[self.farm_no[n-1] % l]
+                        planet,
+                        farm,
+                        fleet={ships_kind: ships_number},
+                        speed=speed):
+                    self.farm_no[n - 1] += 1
+                    farm = farms[self.farm_no[n - 1] % l]
 
             n += 1
 
             try:
-               farms = options['farming'][self.bn_farms + str(n)].split(' ')
-               from_planet = options['farming'][self.bn_from_planet + str(n)]
+                farms = options['farming'][self.bn_farms + str(n)].split(' ')
+                from_planet = options['farming'][self.bn_from_planet + str(n)]
             except Exception as e:
                 loop = False
 
-
-
     def sleep(self):
         sleep_options = options['general']
-        min = int(sleep_options['seed']) - randint(0,int(sleep_options['check_interval']))
-        max = int(sleep_options['seed']) + randint(0,int(sleep_options['check_interval']))
+        min = int(sleep_options['seed']) - randint(0, int(sleep_options['check_interval']))
+        max = int(sleep_options['seed']) + randint(0, int(sleep_options['check_interval']))
         sleep_time = randint(min, max)
         self.logger.info('Sleeping for %s secs' % sleep_time)
         if self.active_attacks:
@@ -880,18 +927,19 @@ class Bot(object):
     def stop(self):
         self.logger.info('Stopping bot')
         os.unlink(self.pidfile)
-        
+
     def start(self):
         self.logger.info('Starting bot')
         self.pid = str(os.getpid())
         self.pidfile = 'bot.pid'
         file(self.pidfile, 'w').write(self.pid)
-        
+
         # Semplificato con la sola esecuzione del Farming Bot
         if self.login_lobby():
             try:
 
                 while True:
+                    self.get_command_from_telegram_bot()
                     self.fetch_planets()
                     self.farm()
                     self.sleep()
@@ -902,7 +950,6 @@ class Bot(object):
             self.logger.error('Login failed!')
 
 
-    
 if __name__ == "__main__":
     credentials = options['credentials']
     bot = Bot(credentials['username'], credentials['password'], credentials['server'])
