@@ -398,10 +398,10 @@ class Bot(object):
             deuterium = int(soup.find(id='resources_deuterium').text.replace('.', '')) - planet.resources['deuterium']
 
             text = 'Pianeta: ' + str(planet.coords) + \
-                   '\n\t\t\tTotale risorse farmate: ' + "{:.}".format(metal + crystal + deuterium) + \
-                   '\n\t\t\t\t\t\tMetallo: ' + "{:.}".format(metal) + \
-                   '\n\t\t\t\t\t\tCristallo: ' + "{:.}".format(crystal) + \
-                   '\n\t\t\t\t\t\tDeuterio: ' + "{:.}".format(deuterium) + '\n\n'
+                   '\n\t\t\tTotale risorse farmate: ' + "{:,}".format(metal + crystal + deuterium) + \
+                   '\n\t\t\t\t\t\tMetallo: ' + "{:,}".format(metal) + \
+                   '\n\t\t\t\t\t\tCristallo: ' + "{:,}".format(crystal) + \
+                   '\n\t\t\t\t\t\tDeuterio: ' + "{:,}".format(deuterium) + '\n\n'
         except:
             text = 'Exception while updating resources info'
 
