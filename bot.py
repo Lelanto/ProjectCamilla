@@ -8,13 +8,10 @@ import logging
 import mechanize
 import os
 import re
-import sys
 from random import randint
-from datetime import datetime, timedelta
-from utils import *
+from datetime import datetime
 from urllib import urlencode
 from planet import Planet, Moon
-from attack import Attack
 from transport_manager import TransportManager
 from config import options
 from sim import Sim
@@ -26,11 +23,9 @@ socket.setdefaulttimeout(float(options['general']['timeout']))
 
 
 class Bot(object):
-    HEADERS = [('User-agent',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36')]
+    HEADERS = [('User-agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36')]
     RE_BUILD_REQUEST = re.compile(r"sendBuildRequest\(\'(.*)\', null, 1\)")
     RE_SERVER_TIME = re.compile(r"var serverTime=new Date\((.*)\);var localTime")
-
 
     # ship -> ship id on the page
     SHIPS = {
@@ -82,7 +77,6 @@ class Bot(object):
         self.username = username
         self.password = password
         self.logged_in = False
-
         self._prepare_logger()
         self._prepare_browser()
 
@@ -94,13 +88,13 @@ class Bot(object):
         self.CMD_PING = False
         self.CMD_FARM = True
         self.CMD_LOGIN = True
-        self.CMD_GET_FARMED_RES = False;
+        self.CMD_GET_FARMED_RES = False
 
         n = 1
         self.farm_no = []
-        self.bn_farms = 'farms_';
-        self.bn_from_planet = 'from_planet_';
-        loop = True;
+        self.bn_farms = 'farms_'
+        self.bn_from_planet = 'from_planet_'
+        loop = True
         while loop:
             try:
                 farms = options['farming'][self.bn_farms + str(n)].split(' ')
@@ -109,6 +103,7 @@ class Bot(object):
                 self.logger.info("Pianeta: " + from_planet + " Inizio dalla farm n: " + str(self.farm_no[n - 1]))
                 n += 1
             except Exception as e:
+                self.logger.error('ERROR:' + str(e))
                 loop = False
 
         self.MAIN_URL = 'https://' + self.server + '/game/index.php'
@@ -142,15 +137,14 @@ class Bot(object):
             'Jhonny sei utile come una sonda contro una rip',
             'Jhonny stanotte ti ho sognato mentre ti salutavo dall alto. Tu eri bello abbronzato e immerso nell acqua, poi ho tirato lo scarico e sei sparito.',
             'Jhonny ti informo che da oggi puoi acquistare a soli 18 euro il kit di espansione del tuo cervello. Prova anche tu il piacere di formulare frasi e pensieri corretti.',
-            'Jhonny sei così grosso che una mosca per farti un giro intorno muore di vecchiaia.',
-            'Jhonny ricordati… che di gente come te ho ancora i pezzi in frigo.',
+            'Jhonny sei cosi grosso che una mosca per farti un giro intorno muore di vecchiaia.',
+            'Jhonny ricordati che di gente come te ho ancora i pezzi in frigo',
             'Jhonny le pause tra i tuoi discorsi sono le cose più interessanti che dici',
             'Jhonny se tu in questo momento ingerissi un moscerino avresti più cervello nello stomaco che in testa!',
             'Jhonny abbraccia la tazza del cesso e cantagli : "non son degno di te". ',
             'Jhonny devi aver fatto la fila tre volte, quando il buon Dio ha distribuito la stupidità !',
             'Jhonny, ma da piccolo i tuoi genitori ti lanciavano in aria e non ti prendevano?',
             'Jhonny il mondo è una merda. Tu sì che sei un uomo di mondo',
-
         ]
 
     def _get_url(self, page, planet=None):
@@ -196,9 +190,6 @@ class Bot(object):
         return p[0] if self.planets else None
 
     def get_closest_planet(self, p):
-        def min_dist(p, d):
-            return d
-
         _, d, _ = p.split(":")
         return sorted([(planet, planet.get_distance(p)) for planet in self.planets],
                       key=lambda x: x[1])[0][0]
@@ -294,9 +285,7 @@ class Bot(object):
             # Richiamo il login
             html = driver.page_source
             soup = BeautifulSoup(html)
-            url = 'https://' + server + '/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}',
-                                                                                                              '').replace(
-                '&amp;', '&')
+            url = 'https://' + server + '/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}','').replace('&amp;', '&')
             driver.get(url)
 
             # Passo i cookie e la sessione a mechanize
@@ -311,12 +300,12 @@ class Bot(object):
                                                comment=None, comment_url=None, rest=None, rfc2109=False))
             self.br.set_cookiejar(cj)
         except:
-            self.logged_in = False;
+            self.logged_in = False
             return False
 
         # Chiudo il browser
         driver.quit()
-        self.logged_in = True;
+        self.logged_in = True
         return True
 
     def calc_time(self, resp):
@@ -329,8 +318,7 @@ class Bot(object):
             self.server_time = datetime(n.year, n.month, n.day, h, mi, sec)
             self.time_diff = self.server_time - self.local_time
 
-            self.logger.info('Server time: %s, local time: %s' % \
-                             (self.server_time, self.local_time))
+            self.logger.info('Server time: %s, local time: %s' %(self.server_time, self.local_time))
 
     def fetch_planets(self):
         self.logger.info('Fetching planets..')
@@ -414,8 +402,6 @@ class Bot(object):
 
     def update_planet_info(self, planet):
         self.miniSleep()
-
-        in_construction_mode = False
         self.logger.info('Carico le risorse del pianeta: ' + planet.coords)
         resp = self.br.open(self._get_url('resources', planet))
         soup = BeautifulSoup(resp)
@@ -617,15 +603,13 @@ class Bot(object):
         self.inactives = list(set(inactives))
         self.logger.info(inactives)
 
-    def send_fleet(self, origin_planet, destination, fleet={}, resources={},
-                   mission='attack', target='planet', speed=None):
+    def send_fleet(self, origin_planet, destination, fleet={}, resources={},mission='attack', target='planet', speed=10):
 
         if origin_planet.coords == destination:
             self.logger.error('Cannot send fleet to the same planet')
             return False
 
-        self.logger.info('Sending fleet from %s to %s (%s)' \
-                         % (origin_planet, destination, mission))
+        self.logger.info('Sending fleet from %s to %s (%s)' % (origin_planet, destination, mission))
 
         try:
             resp = self.br.open(self._get_url('fleet', origin_planet))
@@ -796,16 +780,13 @@ class Bot(object):
 
                     if attackNew:
                         text = text + '\n\n' + str(typeAttack) + ' IN CORSO\n' \
-                                                                 'Orario di arrivo: ' + str(arrivalTime) + '\n' \
-                                                                                                           'Coordinate di arrivo: ' + str(
-                            destCoords) + '\n'
+                                'Orario di arrivo: ' + str(arrivalTime) + '\n' \
+                                'Coordinate di arrivo: ' + str(destCoords) + '\n'
                     for i in range(0, len(player), 1):
                         text = text + '\t\t\t\t\tGIOCATORE: ' + str(player[i]) + '\n' \
-                                                                                 '\t\t\t\t\tCoordinate di partenza: ' + str(
-                            originCoords[i]) + '\n' \
-                                               '\t\t\t\t\tNumero navi in arrivo: ' + str(detailsFleet[i]) + '\n'
+                                '\t\t\t\t\tCoordinate di partenza: ' + str(originCoords[i]) + '\n' \
+                                '\t\t\t\t\tNumero navi in arrivo: ' + str(detailsFleet[i]) + '\n'
                     arrivalTime = ''
-                    coordsOrigin = []
                     destCoords = ''
                     detailsFleet = []
                     player = []
@@ -906,8 +887,12 @@ class Bot(object):
                 elif text == '/login':
                     self.CMD_LOGIN = True
                 elif text == '/logout':
-                    self.logged_in =False;
+                    self.logged_in =False
                     self._prepare_browser()
+                elif text.split(' ')[0] == '/attack_probe':
+                    target = text.split(' ')[1]
+                    self.send_attack_of_probe(target)
+                    self.logger.info('Attack of probes to ' + str(target) + ' sended')
 
     #
     # Invio farmata di sonde
@@ -923,7 +908,7 @@ class Bot(object):
 
         farms = options['farming'][self.bn_farms + str(n)].split(' ')
         from_planet = options['farming'][self.bn_from_planet + str(n)]
-        loop = True;
+        loop = True
         while loop:
             # Seleziono pianeta di attacco
             planet = self.find_planet(coords=from_planet, is_moon=True)
@@ -936,11 +921,7 @@ class Bot(object):
                 farm = farms[self.farm_no[n - 1] % l]
 
                 # Invio attacchi finche ci sono navi
-                while self.send_fleet(
-                        planet,
-                        farm,
-                        fleet={ships_kind: ships_number},
-                        speed=speed):
+                while self.send_fleet(planet,farm,fleet={ships_kind: ships_number},speed=speed):
                     self.farm_no[n - 1] += 1
                     farm = farms[self.farm_no[n - 1] % l]
 
@@ -956,7 +937,7 @@ class Bot(object):
         response = ''
         n = 1
         from_planet = options['farming'][self.bn_from_planet + str(n)]
-        loop = True;
+        loop = True
         try:
             while loop:
                 planet = self.find_planet(coords=from_planet, is_moon=True)
@@ -992,6 +973,19 @@ class Bot(object):
         self.logger.info('Stopping bot')
         os.unlink(self.pidfile)
 
+    def send_attack_of_probe(self,target):
+        attack= True
+        if attack:
+            for planet in self.planets:
+                if self.send_fleet(planet, target, fleet={'ss': '1'}, speed='10'):
+                    attack = False
+                    break
+        if attack:
+            for moon in self.moons:
+                if self.send_fleet(moon, target, fleet={'ss': '1'}, speed='10'):
+                    attack = False
+                    break
+
     def load_farming_planets_info(self):
         response = ''
         n = 1
@@ -1026,7 +1020,7 @@ class Bot(object):
                    self.login_lobby()
                    self.fetch_planets()
                    self.load_farming_planets_info()
-                   self.CMD_LOGIN = False;
+                   self.CMD_LOGIN = False
 
                 if(self.logged_in):
                     if (self.CMD_GET_FARMED_RES):
