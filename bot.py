@@ -623,7 +623,17 @@ class Bot(object):
                 self.logger.info('No available ships on the planet')
                 return False
 
+            # Controllo slot flotta
             soup = BeautifulSoup(resp)
+            span = soup.find('span', title='Slots flotta Usati/Totali')
+            text = span.text.split(':')[1]
+            usati = text.split('/')[0]
+            disponibili = text.split('/')[1]
+
+            if(usati==disponibili):
+                self.logger.info('No free slots (' + usati + '/' + disponibili + ')')
+                return False;
+
             for ship, num in fleet.iteritems():
                 s = soup.find(id='button' + self.SHIPS[ship])
                 num = int(num)
@@ -631,6 +641,7 @@ class Bot(object):
                     available = int(s.find('span', 'textlabel').nextSibling.replace('.', ''))
                 except:
                     available = 0
+
                 if available < num and mission in ('attack', 'expedition'):
                     self.logger.info('No available ships to send')
                     return False
@@ -867,6 +878,7 @@ class Bot(object):
             text = result[id]['message']['text']
             update_id = result[id]['update_id']
             currentTime = int(time.time()) - 300
+
             if timeMessage > currentTime and chatId == int(chatIdTelegram):
 
                 options.updateValue('credentials', 'last_update_id', str(update_id))
