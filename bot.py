@@ -103,7 +103,6 @@ class Bot(object):
                 self.logger.info("Pianeta: " + from_planet + " Inizio dalla farm n: " + str(self.farm_no[n - 1]))
                 n += 1
             except Exception as e:
-                self.logger.error('ERROR:' + str(e))
                 loop = False
 
         self.MAIN_URL = 'https://' + self.server + '/game/index.php'
@@ -261,7 +260,10 @@ class Bot(object):
             driver.get("https://it.ogame.gameforge.com")
 
             # Chiudo banner
-            driver.find_element_by_link_text("x").click()
+            try:
+                driver.find_element_by_link_text("x").click()
+            except:
+                self.logger.info('No banner found')
 
             # Vado sulla Login Form
             driver.find_element_by_link_text("Login").click()
@@ -299,7 +301,9 @@ class Bot(object):
                                                secure=s_cookie['secure'], expires=None, discard=False,
                                                comment=None, comment_url=None, rest=None, rfc2109=False))
             self.br.set_cookiejar(cj)
-        except:
+
+        except Exception as e:
+            self.logger.exception(e)
             self.logged_in = False
             return False
 
@@ -850,7 +854,7 @@ class Bot(object):
         botTelegram = options['credentials']['bot_telegram']
         lastUpdateIdTelegram = options['credentials']['last_update_id']
 
-        url = 'https://api.telegram.org/' + str(botTelegram) + '/getUpdates?'
+        url = 'https://api.telegram.org/' + str(botTelegram) + '/getUpdates?offset=' + str(int(str(lastUpdateIdTelegram))+1)
 
         resp = self.br.open(url)
         soup = BeautifulSoup(resp)
@@ -858,14 +862,13 @@ class Bot(object):
         result = data_json['result']
 
         for id in range(0, len(result)):
-            url = 'https://api.telegram.org/' + str(botTelegram) + '/sendMessage?'
-            text = ''
             timeMessage = result[id]['message']['date']
             chatId = result[id]['message']['chat']['id']
             text = result[id]['message']['text']
             update_id = result[id]['update_id']
             currentTime = int(time.time()) - 300
-            if timeMessage > currentTime and update_id > int(lastUpdateIdTelegram) and chatId == int(chatIdTelegram):
+            if timeMessage > currentTime and chatId == int(chatIdTelegram):
+
                 options.updateValue('credentials', 'last_update_id', str(update_id))
 
                 if text == '/resourcesfarmed':
@@ -1018,9 +1021,10 @@ class Bot(object):
 
                 if(self.CMD_LOGIN):
                    self.login_lobby()
-                   self.fetch_planets()
-                   self.load_farming_planets_info()
-                   self.CMD_LOGIN = False
+                   if(self.logged_in):
+                       self.fetch_planets()
+                       self.load_farming_planets_info()
+                       self.CMD_LOGIN = False
 
                 if(self.logged_in):
                     if (self.CMD_GET_FARMED_RES):
