@@ -15,7 +15,6 @@ from planet import Planet, Moon
 from transport_manager import TransportManager
 from config import options
 from sim import Sim
-
 from selenium import webdriver
 import cookielib
 
@@ -409,19 +408,31 @@ class Bot(object):
         self.logger.info('Carico le risorse del pianeta: ' + planet.coords)
         resp = self.br.open(self._get_url('resources', planet))
         soup = BeautifulSoup(resp)
-
+        today = datetime.today().strftime('%Y-%m-%d')
+        if os.path.isfile('resources_'+today+'-txt'):
+            file = open('resources_'+today+'.txt', 'r')
+            for line in file:
+                if line.split('/')[0] == planet.coords:
+                    planet.resources['metal'] = line.split('/')[1]
+                    planet.resources['crystal'] = line.split('/')[2]
+                    planet.resources['deuterium'] = line.split('/')[3]
+            file.close()
+        else:
         # Per ora carico solo le risorse. Il resto non serve
-        try:
-            metal = int(soup.find(id='resources_metal').text.replace('.', ''))
-            planet.resources['metal'] = metal
-            crystal = int(soup.find(id='resources_crystal').text.replace('.', ''))
-            planet.resources['crystal'] = crystal
-            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', ''))
-            planet.resources['deuterium'] = deuterium
-            energy = int(soup.find(id='resources_energy').text.replace('.', ''))
-            planet.resources['energy'] = energy
-        except:
-            self.logger.exception('Exception while updating resources info')
+            try:
+                file = open('resources_' + today + '.txt', 'a')
+                metal = int(soup.find(id='resources_metal').text.replace('.', ''))
+                planet.resources['metal'] = metal
+                crystal = int(soup.find(id='resources_crystal').text.replace('.', ''))
+                planet.resources['crystal'] = crystal
+                deuterium = int(soup.find(id='resources_deuterium').text.replace('.', ''))
+                planet.resources['deuterium'] = deuterium
+                energy = int(soup.find(id='resources_energy').text.replace('.', ''))
+                planet.resources['energy'] = energy
+                file.write(str(planet.coords)+'/'+str(metal)+'/'+str(crystal)+'/'+str(deuterium)+'\n')
+                file.close()
+            except:
+                self.logger.exception('Exception while updating resources info')
 
         #
         # Matteo: Codice commentato perche inutile
@@ -860,7 +871,6 @@ class Bot(object):
     def get_command_from_telegram_bot(self):
         import json
         import time
-
         chatIdTelegram = options['credentials']['chat_id_telegram']
         botTelegram = options['credentials']['bot_telegram']
         lastUpdateIdTelegram = options['credentials']['last_update_id']
@@ -1018,8 +1028,6 @@ class Bot(object):
 
         except Exception as e:
             self.logger.exception(e)
-
-
 
     def start(self):
         self.logger.info('Starting bot')
