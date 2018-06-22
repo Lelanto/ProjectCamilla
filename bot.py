@@ -70,7 +70,11 @@ class Bot(object):
         20: '2',
         10: '1'
     }
-
+    RESOURCESTOSEND = {
+        'metal' : 0,
+        'crystal' : 0,
+        'deuterium' : 0
+    }
     def __init__(self, username=None, password=None, server=None):
         self.server = server
         self.username = username
@@ -389,9 +393,9 @@ class Bot(object):
         try:
             resp = self.br.open(self._get_url('fleet', planet))
             soup = BeautifulSoup(resp)
-            metal = int(soup.find(id='resources_metal').text.replace('.', '')) - planet.resources['metal']
-            crystal = int(soup.find(id='resources_crystal').text.replace('.', '')) - planet.resources['crystal']
-            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', '')) - planet.resources['deuterium']
+            metal = int(soup.find(id='resources_metal').text.replace('.', '')) - int(planet.resources['metal'])
+            crystal = int(soup.find(id='resources_crystal').text.replace('.', '')) - int(planet.resources['crystal'])
+            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', '')) - int(planet.resources['deuterium'])
 
             text = 'Pianeta: ' + str(planet.coords) + \
                    '\n\t\t\tTotale risorse farmate: ' + "{:,}".format(metal + crystal + deuterium) + \
@@ -409,7 +413,7 @@ class Bot(object):
         resp = self.br.open(self._get_url('resources', planet))
         soup = BeautifulSoup(resp)
         today = datetime.today().strftime('%Y-%m-%d')
-        if os.path.isfile('resources_'+today+'-txt'):
+        if os.path.isfile('resources_'+today+'.txt'):
             file = open('resources_'+today+'.txt', 'r')
             for line in file:
                 if line.split('/')[0] == planet.coords:
@@ -420,7 +424,7 @@ class Bot(object):
         else:
         # Per ora carico solo le risorse. Il resto non serve
             try:
-                file = open('resources_' + today + '.txt', 'a')
+                file = open('resources_' + today + '.txt', 'w')
                 metal = int(soup.find(id='resources_metal').text.replace('.', ''))
                 planet.resources['metal'] = metal
                 crystal = int(soup.find(id='resources_crystal').text.replace('.', ''))
@@ -433,6 +437,20 @@ class Bot(object):
                 file.close()
             except:
                 self.logger.exception('Exception while updating resources info')
+
+    def update_planet_resources(self, planet):
+        self.miniSleep()
+        try:
+            resp = self.br.open(self._get_url('resources', planet))
+            soup = BeautifulSoup(resp)
+            metal = int(soup.find(id='resources_metal').text.replace('.', ''))
+            self.RESOURCESTOSEND['metal']=metal
+            crystal = int(soup.find(id='resources_crystal').text.replace('.', ''))
+            self.RESOURCESTOSEND['crystal'] = crystal
+            deuterium = int(soup.find(id='resources_deuterium').text.replace('.', ''))
+            self.RESOURCESTOSEND['deuterium'] = deuterium
+        except:
+            self.logger.exception('Exception while updating resources info')
 
         #
         # Matteo: Codice commentato perche inutile
@@ -539,40 +557,31 @@ class Bot(object):
     def get_player_status(self, destination, origin_planet=None):
         if not destination:
             return
-
         status = {}
         origin_planet = origin_planet or self.get_closest_planet(destination)
         galaxy, system, position = destination.split(':')
-
         url = self._get_url('galaxyCnt', origin_planet)
         data = urlencode({'galaxy': galaxy, 'system': system})
         resp = self.br.open(url, data=data)
         soup = BeautifulSoup(resp)
-
         soup.find(id='galaxytable')
         planets = soup.findAll('tr', {'class': 'row'})
         target_planet = planets[int(position) - 1]
         name_el = target_planet.find('td', 'playername')
         status['name'] = name_el.find('span').text
-
         status['inactive'] = 'inactive' in name_el.get('class', '')
         return status
 
     def find_inactive_nearby(self, planet, radius=15):
-
-        self.logger.info("Searching idlers near %s in radius %s"
-                         % (planet, radius))
-
+        self.logger.info("Searching idlers near %s in radius %s" % (planet, radius))
         nearby_systems = planet.get_nearby_systems(radius)
         idlers = []
-
         for system in nearby_systems:
             galaxy, system = system.split(":")
             url = self._get_url('galaxyCnt', planet)
             data = urlencode({'galaxy': galaxy, 'system': system})
             resp = self.br.open(url, data=data)
             soup = BeautifulSoup(resp)
-
             galaxy_el = soup.find(id='galaxytable')
             planets = galaxy_el.findAll('tr', {'class': 'row'})
             for pl in planets:
@@ -619,7 +628,6 @@ class Bot(object):
         self.logger.info(inactives)
 
     def send_fleet(self, origin_planet, destination, fleet={}, resources={},mission='attack', target='planet', speed=10):
-
         if origin_planet.coords == destination:
             self.logger.error('Cannot send fleet to the same planet')
             return False
@@ -707,12 +715,6 @@ class Bot(object):
         self.br.form['text'] = message
         self.br.submit()
 
-    def send_sms(self, msg):
-        from smsapigateway import SMSAPIGateway
-        try:
-            SMSAPIGateway().send(msg)
-        except Exception as e:
-            self.logger.exception(str(e))
 
     def handle_attacks(self):
         attack_opts = options['attack']
@@ -881,7 +883,6 @@ class Bot(object):
         soup = BeautifulSoup(resp)
         data_json = json.loads(str(soup))
         result = data_json['result']
-
         for id in range(0, len(result)):
             timeMessage = result[id]['message']['date']
             chatId = result[id]['message']['chat']['id']
@@ -914,6 +915,10 @@ class Bot(object):
                 elif text == '/logout':
                     self.logged_in =False
                     self._prepare_browser()
+                elif text.split(' ')[0] == '/raccolta':
+                    target = text.split(' ')[1]
+                    self.send_transports_production(target)
+                    self.logger.info('All planets send production to ' + str(target))
                 elif text.split(' ')[0] == '/attack_probe':
                     target = text.split(' ')[1]
                     self.send_attack_of_probe(target)
@@ -949,14 +954,20 @@ class Bot(object):
                 while self.send_fleet(planet,farm,fleet={ships_kind: ships_number},speed=speed):
                     self.farm_no[n - 1] += 1
                     farm = farms[self.farm_no[n - 1] % l]
-
             n += 1
-
             try:
                 farms = options['farming'][self.bn_farms + str(n)].split(' ')
                 from_planet = options['farming'][self.bn_from_planet + str(n)]
             except Exception as e:
                 loop = False
+
+    def send_transports_production(self,target):
+        for planet in self.planets:
+            self.update_planet_resources(planet)
+            numFleet = (self.RESOURCESTOSEND['metal']+self.RESOURCESTOSEND['crystal']+self.RESOURCESTOSEND['deuterium'])/25000
+            if int(numFleet) > 150:
+                self.send_fleet(planet, target, fleet={'dt':numFleet}, resources = self.RESOURCESTOSEND, mission='transport',target='planet', speed='10')
+
 
     def send_farmed_res(self):
         response = ''
@@ -1000,13 +1011,13 @@ class Bot(object):
 
     def send_attack_of_probe(self,target):
         attack= True
-        if attack:
-            for planet in self.planets:
+        for planet in self.planets:
+            if attack:
                 if self.send_fleet(planet, target, fleet={'ss': '1'}, speed='10'):
                     attack = False
                     break
-        if attack:
-            for moon in self.moons:
+        for moon in self.moons:
+            if attack:
                 if self.send_fleet(moon, target, fleet={'ss': '1'}, speed='10'):
                     attack = False
                     break
@@ -1050,11 +1061,11 @@ class Bot(object):
                     if (self.CMD_GET_FARMED_RES):
                         self.send_farmed_res()
                     if(self.CMD_FARM):
-                        self.farm()
+                       self.farm()
 
             except Exception as e:
                 self.logger.exception(e)
-                self.send_telegram_message("Errore: " + e.message.decode())
+                self.send_telegram_message("Errore: " + e)
 
             self.sleep()
 
