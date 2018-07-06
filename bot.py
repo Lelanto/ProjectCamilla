@@ -360,7 +360,7 @@ class Bot(object):
         except:
             self.logger.exception('Exception while fetching planets')
         else:
-            self.check_attacks(soup)
+            self.check_attacks()
 
     def handle_planets(self):
         self.fetch_planets()
@@ -413,14 +413,28 @@ class Bot(object):
         resp = self.br.open(self._get_url('resources', planet))
         soup = BeautifulSoup(resp)
         today = datetime.today().strftime('%Y-%m-%d')
+        found = False
         if os.path.isfile('resources_'+today+'.txt'):
             file = open('resources_'+today+'.txt', 'r')
             for line in file:
                 if line.split('/')[0] == planet.coords:
+                    found = True
                     planet.resources['metal'] = line.split('/')[1]
                     planet.resources['crystal'] = line.split('/')[2]
                     planet.resources['deuterium'] = line.split('/')[3]
             file.close()
+            if found == False:
+                file = open('resources_' + today + '.txt', 'a')
+                metal = int(soup.find(id='resources_metal').text.replace('.', ''))
+                planet.resources['metal'] = metal
+                crystal = int(soup.find(id='resources_crystal').text.replace('.', ''))
+                planet.resources['crystal'] = crystal
+                deuterium = int(soup.find(id='resources_deuterium').text.replace('.', ''))
+                planet.resources['deuterium'] = deuterium
+                energy = int(soup.find(id='resources_energy').text.replace('.', ''))
+                planet.resources['energy'] = energy
+                file.write(str(planet.coords) + '/' + str(metal) + '/' + str(crystal) + '/' + str(deuterium) + '\n')
+                file.close()
         else:
         # Per ora carico solo le risorse. Il resto non serve
             try:
@@ -651,7 +665,7 @@ class Bot(object):
 
             if(usati==disponibili):
                 self.logger.info('No free slots (' + usati + '/' + disponibili + ')')
-                return False;
+                return False
 
             for ship, num in fleet.iteritems():
                 s = soup.find(id='button' + self.SHIPS[ship])
@@ -687,7 +701,8 @@ class Bot(object):
 
             self.miniSleep()
             self.br.submit()
-
+            #durata= BeautifulSoup(self.br.submit()).find(id='duration').text.split(' ')[0]
+            #self.logger.info('Sending fleet from %s to %s (%s) in %s' % (origin_planet, destination, mission,durata))
             self.br.select_form(name='sendForm')
             self.br.form.find_control("mission").readonly = False
             self.br.form['mission'] = self.MISSIONS[mission]
@@ -734,8 +749,9 @@ class Bot(object):
                     a.message_sent = True
                 self.fleet_save(a.planet)
 
-    def check_attacks(self, soup):
-
+    def check_attacks(self):
+        resp = self.br.open(self.PAGES['main']).read()
+        soup = BeautifulSoup(resp)
         alert = soup.find(id='attack_alert')
         if not alert:
             self.logger.exception('Check attack failed')
@@ -754,7 +770,6 @@ class Bot(object):
             arrivalTime = ''
             originCoords = []
             destCoords = ''
-            detailsFleet = []
             player = []
             attackNew = False
             try:
@@ -877,7 +892,7 @@ class Bot(object):
         botTelegram = options['credentials']['bot_telegram']
         lastUpdateIdTelegram = options['credentials']['last_update_id']
 
-        url = 'https://api.telegram.org/' + str(botTelegram) + '/getUpdates?offset=' + str(int(str(lastUpdateIdTelegram))+1)
+        url = 'https://api.telegram.org/' + str(botTelegram) + '/getUpdates?offset=' + str(int(lastUpdateIdTelegram)+1)
 
         resp = self.br.open(url)
         soup = BeautifulSoup(resp)
@@ -1039,7 +1054,9 @@ class Bot(object):
 
         except Exception as e:
             self.logger.exception(e)
-
+    def refresh_mother(self):
+        self.br.open(self._get_url('main', self.get_mother()))
+        self.logger.info("Mother refreshed")
     def start(self):
         self.logger.info('Starting bot')
         self.pid = str(os.getpid())
@@ -1047,27 +1064,32 @@ class Bot(object):
         file(self.pidfile, 'w').write(self.pid)
 
         while(not self.CMD_STOP):
-            try:
-                self.get_command_from_telegram_bot()
+            round = 0
+            while (round < 5):
+                try:
+                    self.get_command_from_telegram_bot()
 
-                if(self.CMD_LOGIN):
-                   self.login_lobby()
-                   if(self.logged_in):
-                       self.fetch_planets()
-                       self.load_farming_planets_info()
-                       self.CMD_LOGIN = False
+                    if(self.CMD_LOGIN):
+                       self.login_lobby()
+                       if(self.logged_in):
+                            self.fetch_planets()
+                            self.load_farming_planets_info()
+                            self.CMD_LOGIN = False
 
-                if(self.logged_in):
-                    if (self.CMD_GET_FARMED_RES):
-                        self.send_farmed_res()
-                    if(self.CMD_FARM):
-                       self.farm()
+                    if(self.logged_in):
+                        if round==0:
+                            self.refresh_mother()
+                        if (self.CMD_GET_FARMED_RES):
+                            self.send_farmed_res()
+                        if(self.CMD_FARM):
+                            self.check_attacks()
+                            self.farm()
 
-            except Exception as e:
-                self.logger.exception(e)
-                self.send_telegram_message("Errore: " + e)
-
-            self.sleep()
+                except Exception as e:
+                    self.logger.exception(e)
+                    self.send_telegram_message("Errore: " + str(e.message))
+                round +=1
+                self.sleep()
 
         self.send_telegram_message("Bot Spento")
         self.stop()
