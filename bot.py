@@ -1058,7 +1058,6 @@ class Bot(object):
 
     def refresh_mother(self):
         self.round = self.round + 1
-
         if self.round > 5:
             self.br.open(self._get_url('main', self.get_mother()))
             self.logger.info("Mother refreshed")
