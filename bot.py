@@ -82,6 +82,7 @@ class Bot(object):
         self.logged_in = False
         self._prepare_logger()
         self._prepare_browser()
+        self.round = 0
 
         # Comandi gestiti dal bot
         self.chatIdTelegram = options['credentials']['chat_id_telegram']
@@ -663,7 +664,7 @@ class Bot(object):
             usati = text.split('/')[0]
             disponibili = text.split('/')[1]
 
-            if(usati==disponibili):
+            if usati == disponibili:
                 self.logger.info('No free slots (' + usati + '/' + disponibili + ')')
                 return False
 
@@ -1054,9 +1055,15 @@ class Bot(object):
 
         except Exception as e:
             self.logger.exception(e)
+
     def refresh_mother(self):
-        self.br.open(self._get_url('main', self.get_mother()))
-        self.logger.info("Mother refreshed")
+        self.round = self.round + 1
+
+        if self.round > 5:
+            self.br.open(self._get_url('main', self.get_mother()))
+            self.logger.info("Mother refreshed")
+            self.round = 0
+
     def start(self):
         self.logger.info('Starting bot')
         self.pid = str(os.getpid())
@@ -1064,8 +1071,6 @@ class Bot(object):
         file(self.pidfile, 'w').write(self.pid)
 
         while(not self.CMD_STOP):
-            round = 0
-            while (round < 5):
                 try:
                     self.get_command_from_telegram_bot()
 
@@ -1077,8 +1082,7 @@ class Bot(object):
                             self.CMD_LOGIN = False
 
                     if(self.logged_in):
-                        if round==0:
-                            self.refresh_mother()
+                        self.refresh_mother()
                         if (self.CMD_GET_FARMED_RES):
                             self.send_farmed_res()
                         if(self.CMD_FARM):
@@ -1088,7 +1092,6 @@ class Bot(object):
                 except Exception as e:
                     self.logger.exception(e)
                     self.send_telegram_message("Errore: " + str(e.message))
-                round +=1
                 self.sleep()
 
         self.send_telegram_message("Bot Spento")
