@@ -186,7 +186,6 @@ class Bot_unuserd_code(object):
             self.br.form.new_control('text', 'modus', {'value': '1'})
             self.br.form.fixup()
             self.br['modus'] = '1'
-
             self.br.submit()
 
     def update_planet_resources(self, planet):
