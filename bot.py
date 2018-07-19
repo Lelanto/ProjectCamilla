@@ -242,7 +242,6 @@ class Bot(object):
             soup = BeautifulSoup(html)
             url = 'https://' + server + '/game/lobbylogin.php?' + soup.find('pre').text.split('?')[1].replace('"}','').replace('&amp;', '&')
             driver.get(url)
-
             # Passo i cookie e la sessione a mechanize
             cookie = driver.get_cookies()
             cj = cookielib.LWPCookieJar()
@@ -826,6 +825,7 @@ class Bot(object):
         if self.round % 5 == 0:
             self.br.open(self._get_url('main', self.get_mother()))
             self.logger.info("Mother refreshed")
+            self.send_telegram_message("BOT ATTIVO")
 
     def start(self):
         self.logger.info('Starting bot')
