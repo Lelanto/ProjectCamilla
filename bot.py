@@ -9,13 +9,14 @@ import mechanize
 import os
 import re
 from random import randint
-from datetime import datetime
+from datetime import datetime,timedelta
 from urllib import urlencode
 from planet import Planet, Moon
 from transport_manager import TransportManager
 from config import options
 from sim import Sim
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import cookielib
 
 socket.setdefaulttimeout(float(options['general']['timeout']))
@@ -122,6 +123,7 @@ class Bot(object):
             'galaxyCnt': self.MAIN_URL + '?page=galaxyContent',
             'events': self.MAIN_URL + '?page=eventList',
             'messages': self.MAIN_URL + '?page=messages',
+            'chat': self.MAIN_URL + '?page=ajaxChat',
         }
         self.planets = []
         self.moons = []
@@ -135,20 +137,6 @@ class Bot(object):
         self.emergency_sms_sent = False
         self.transport_manager = TransportManager()
         self.sim = Sim()
-
-        self.INSULTI_A_JONNY = [
-            'Jhonny sei utile come una sonda contro una rip',
-            'Jhonny stanotte ti ho sognato mentre ti salutavo dall alto. Tu eri bello abbronzato e immerso nell acqua, poi ho tirato lo scarico e sei sparito.',
-            'Jhonny ti informo che da oggi puoi acquistare a soli 18 euro il kit di espansione del tuo cervello. Prova anche tu il piacere di formulare frasi e pensieri corretti.',
-            'Jhonny sei cosi grosso che una mosca per farti un giro intorno muore di vecchiaia.',
-            'Jhonny ricordati che di gente come te ho ancora i pezzi in frigo',
-            'Jhonny le pause tra i tuoi discorsi sono le cose più interessanti che dici',
-            'Jhonny se tu in questo momento ingerissi un moscerino avresti più cervello nello stomaco che in testa!',
-            'Jhonny abbraccia la tazza del cesso e cantagli : "non son degno di te". ',
-            'Jhonny devi aver fatto la fila tre volte, quando il buon Dio ha distribuito la stupidità !',
-            'Jhonny, ma da piccolo i tuoi genitori ti lanciavano in aria e non ti prendevano?',
-            'Jhonny il mondo è una merda. Tu sì che sei un uomo di mondo',
-        ]
 
     def _get_url(self, page, planet=None):
         url = self.PAGES[page]
@@ -203,13 +191,16 @@ class Bot(object):
                 return p
 
     def login_lobby(self, username=None, password=None, server=None):
+        chrome_options = Options()
+        # chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--window-size=1920x1080")
         username = username or self.username
         password = password or self.password
         server = server or self.server
         player_id = options['credentials']['player_id']
         number = server[1:4]
         try:
-            driver = webdriver.Chrome()
+            driver= webdriver.Chrome(chrome_options=chrome_options)
             driver.get("https://it.ogame.gameforge.com")
 
             # Chiudo banner
@@ -245,7 +236,8 @@ class Bot(object):
             # Passo i cookie e la sessione a mechanize
             cookie = driver.get_cookies()
             cj = cookielib.LWPCookieJar()
-
+            #self.searchInactive(driver)
+            #self.sleep()
             for s_cookie in cookie:
                 cj.set_cookie(cookielib.Cookie(version=0, name=s_cookie['name'], value=s_cookie['value'], port='80',
                                                port_specified=False, domain=s_cookie['domain'], domain_specified=True,
@@ -259,10 +251,24 @@ class Bot(object):
             self.logged_in = False
             return False
 
-        # Chiudo il browser
+        #Chiudo il browser
         driver.quit()
         self.logged_in = True
         return True
+
+    def searchInactive(self):
+        for x in range(1,50):
+            url='https://s155-it.ogame.gameforge.com/game/index.php?page=galaxy&galaxy=1&system='+str(x)
+            driver.get(url)
+            self.miniSleep()
+            self.miniSleep()
+            try:
+                a= driver.find_elements_by_css_selector('.inactive_filter')
+                for b in a:
+                    if("(v " not in b.text.split('\n')[2] or "(b v " not in b.text.split('\n')[2]):
+                        print "1:"+str(x)+":"+b.text.split("\n")[0]
+            except:
+                continue
 
     def calc_time(self, resp):
         try:
@@ -313,7 +319,6 @@ class Bot(object):
 
     def handle_planets(self):
         self.fetch_planets()
-
         for p in iter(self.planets):
             self.update_planet_info(p)
             self.update_planet_fleet(p)
@@ -329,7 +334,9 @@ class Bot(object):
             available = 0
             try:
                 s = soup.find(id='button' + v)
+                self.logger.info(s.find('span', 'textlabel').nextSibling)
                 available = int(s.find('span', 'textlabel').nextSibling.replace('.', ''))
+                self.logger.info(s.find('span', 'textlabel').nextSibling)
             except:
                 available = 0
             ships[k] = available
@@ -523,15 +530,13 @@ class Bot(object):
 
         return True
 
-    def send_message(self, url, player, subject, message):
-        self.logger.info('Sending message to %s: %s' % (player, message))
+    def send_message(self, player, text):
+        self.logger.info('Sending message to %s: %s' % (player, text))
+        url = self._get_url('chat')+"&playerId="+player+"&text="+text+"&mode=1&ajax=1"
         self.br.open(url)
-        self.br.select_form(nr=0)
-        self.br.form['betreff'] = subject
-        self.br.form['text'] = message
-        self.br.submit()
 
     def check_attacks(self):
+        self.attack=False
         resp = self.br.open(self.PAGES['main']).read()
         soup = BeautifulSoup(resp)
         alert = soup.find(id='attack_alert')
@@ -583,8 +588,21 @@ class Bot(object):
                                 destCoords = tr.find('td', 'destCoords')
                                 if destCoords:
                                     destCoords = destCoords.find('a').text.strip()[1:-1]
+
+                                detailsFleet = []
                                 detailsFleet.append(tr.find('td', 'detailsFleet').span.text.replace('.', ''))
                                 player.append(tr.find('td', 'sendMail').find('a').get('title'))
+                                if (str(datetime.now() + timedelta(seconds=randint(10000, 10000))).split(" ")[1].split(".")[0] > arrivalTime):
+                                    for p in self.planets:
+                                        if (p.coords== destCoords):
+                                            self.logger.info('FLETTATO ' + p.coords)
+                                            self.fleet_save(p)
+                                            #self.send_message(tr.find('td', 'sendMail').find('a').get('data-playerid'),"On+flettato")
+                                    for p in self.moons:
+                                        if (p.coords == destCoords):
+                                            self.logger.info('FLETTATO '+p.coords)
+                                            self.fleet_save(p)
+                                            #self.send_message(tr.find('td', 'sendMail').find('a').get('data-playerid'),"On+flettato")
                             except Exception as e:
                                 self.logger.exception(e)
                         elif typeAttack == 'ATTACCO FEDERATO' or tr.get('class').split(' ')[0] == 'partnerInfo':
@@ -616,7 +634,8 @@ class Bot(object):
                     detailsFleet = []
                     player = []
                     attackNew = False
-                    self.send_telegram_message(text)
+                    #self.send_telegram_message(text)
+                    self.attack=True
                 if not hostile:
                     self.active_attacks = []
             except Exception as e:
@@ -677,10 +696,6 @@ class Bot(object):
 
                 if text == '/resourcesfarmed':
                     self.CMD_GET_FARMED_RES = True
-                elif text == '/ping':
-                    self.send_telegram_message("Pong")
-                elif text == '/jhonny':
-                    self.send_telegram_message(self.INSULTI_A_JONNY[randint(0, len(self.INSULTI_A_JONNY))])
                 elif text == '/stop':
                     self.CMD_STOP = True
                 elif text == '/stop_farmer':
@@ -704,6 +719,32 @@ class Bot(object):
                     target = text.split(' ')[1]
                     self.send_attack_of_probe(target)
                     self.logger.info('Attack of probes to ' + str(target) + ' sended')
+
+    def get_safe_planet(self, planet):
+        '''
+        Get first planet which is not under attack and isn't `planet`
+        '''
+        unsafe_planets = [a.planet for a in self.active_attacks]
+        for p in self.planets:
+            if not p in unsafe_planets and p != planet:
+                return p
+        # no safe planets! go to mother
+        return self.planets[0]
+
+    def fleet_save(self, p):
+        if not p.has_ships():
+            return
+        fleet = p.ships
+
+        self.logger.info('Making fleet save from %s' % p)
+        self.send_fleet(p,
+                        self.get_safe_planet(p).coords,
+                        fleet=fleet,
+                        mission='station',
+                        speed='1',
+                        resources={'metal': p.resources['metal'],
+                                   'crystal': p.resources['crystal'],
+                                   'deuterium': p.resources['deuterium']})
 
     #
     # Invio farmata di sonde
@@ -840,17 +881,17 @@ class Bot(object):
                     if(self.CMD_LOGIN):
                        self.login_lobby()
                        if(self.logged_in):
-                            self.fetch_planets()
-                            self.load_farming_planets_info()
+                            self.handle_planets()
+                           # self.load_farming_planets_info()
                             self.CMD_LOGIN = False
 
-                    if(self.logged_in):
-                        self.refresh_mother()
-                        if (self.CMD_GET_FARMED_RES):
-                            self.send_farmed_res()
-                        if(self.CMD_FARM):
+                    #if(self.logged_in):
+                            self.refresh_mother()
+                        #if (self.CMD_GET_FARMED_RES):
+                          #  self.send_farmed_res()
+                        #if(self.CMD_FARM):
                             self.check_attacks()
-                            self.farm()
+                          #  self.farm()
 
                 except Exception as e:
                     self.logger.exception(e)
